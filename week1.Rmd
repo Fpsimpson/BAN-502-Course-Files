@@ -1,0 +1,122 @@
+---
+title: "assignement2"
+author: "Freddy Simpson"
+date: "2023-09-12"
+output: word_document
+---
+
+```{r}
+library(tidyverse) #tidyverse set of packages and functions
+library(tidymodels)
+library(glmnet) #for Lasso, ridge, and elastic net models 
+library(GGally) #create ggcorr and ggpairs plots
+library(ggcorrplot) #create an alternative to ggcorr plots
+library(MASS) #access to forward and backward selection algorithms
+library(leaps) #best subset selection
+library(lmtest) #for the dw test
+library(splines2) #for nonlinear fitting
+library(car) #for the VIF function
+library(lubridate)
+
+```
+```{r}
+library(readr)
+
+bike <- read_csv("~/Desktop/Prescriptive Analitics/Module 2/Weekassignment2/bike_cleaned.csv")
+View(bike)
+
+str(bike)
+summary(bike)
+```
+```{r}
+bike = bike %>% mutate(dteday = mdy(dteday))
+```
+
+```{r}
+bike = bike %>% mutate(season = as_factor(season))
+bike = bike %>% mutate(mnth = as_factor(mnth))
+bike = bike %>% mutate(holiday = as_factor(holiday))
+bike = bike %>% mutate(weekday = as_factor(weekday))
+bike = bike %>% mutate(workingday= as_factor(workingday))
+bike = bike %>% mutate(weathersit = as_factor(weathersit))
+str(bike)
+```
+```{r}
+bike = bike %>% mutate(hr = as_factor(hr))
+str(bike)
+```
+
+
+```{r}
+ggpairs(bike, columns = c(1,10:13,16))
+```
+
+```{r}
+ggplot(bike, aes(x=season,y=count)) + geom_boxplot() + theme_bw()
+ggplot(bike, aes(x=hr,y=count))  + geom_boxplot() + theme_bw()
+ggplot(bike, aes(x=hr,y=count)) + geom_boxplot() + 
+  geom_jitter() + theme_bw()
+```
+```{r}
+bike_recipe = recipe(count ~ hr, bike) %>%
+  step_dummy(hr)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe)
+
+lm_fit = fit(lm_wflow, bike)
+
+summary(lm_fit$fit$fit$fit)
+```
+```{r}
+ggplot(bike,aes(x=hr,y=count)) + geom_point(alpha=0.1) + geom_smooth(method = "lm", color = "red") + theme_bw()
+```
+```{r}
+bike2_recipe = recipe(count ~ hr+ temp , bike) %>%
+  step_dummy(all_nominal())
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike2_recipe)
+
+lm_fit = fit(lm_wflow, bike)
+
+summary(lm_fit$fit$fit$fit)
+```
+```{r}
+31.748 + -80.181 +
+```
+
+
+
+
+```{r}
+bike3_recipe = recipe(count ~ temp+ atemp , bike) %>%
+  step_dummy(all_nominal())
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike3_recipe)
+
+lm_fit = fit(lm_wflow, bike)
+
+summary(lm_fit$fit$fit$fit)
+```
+```
+

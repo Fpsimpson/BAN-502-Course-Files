@@ -1,0 +1,240 @@
+---
+title: "week4 assi 2"
+author: "Freddy Simpson"
+date: "2023-09-25"
+output: word_document
+---
+```{r}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(caret)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(rpart) #for classification trees
+library(rpart.plot) #for plotting trees
+library(RColorBrewer) 
+library(rattle) #better visualization of classification trees
+```
+Read in dataset   
+```{r}
+library(readr)
+heart<- read_csv("~/Desktop/Prescriptive Analitics/Module 2/Weekassignment2/heart_disease-1.csv")
+View(heart)
+```
+
+
+```{r}
+
+
+heart = heart %>% mutate(Sex= as_factor(Sex)) %>% 
+ mutate(ChestPainType = as_factor(ChestPainType)) %>% 
+ mutate(RestingECG = as_factor(RestingECG)) %>% 
+   mutate(ST_Slope = as_factor(ST_Slope)) %>%  mutate(ExerciseAngina = as_factor(ExerciseAngina)) %>% 
+   mutate(HeartDisease = as_factor(HeartDisease)) %>% 
+  mutate(HeartDisease = fct_recode( HeartDisease, "No" = "0", "Yes" = "1" )) 
+str(heart)
+
+
+```
+
+
+Now we'll split the data.  
+```{r}
+set.seed(12345) 
+heart_split = initial_split(heart, prop = 0.70, strata = HeartDisease) #70% in training
+hearttrain = training(heart_split) 
+hearttest = testing(heart_split)
+
+```
+
+
+Now that we have the split data, let's build a classification tree. Here we use caret to manage the model building.  
+```{r}
+heart_recipe = recipe(HeartDisease ~ ., hearttrain)
+
+tree_model = decision_tree() %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification")
+
+heart_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(heart_recipe)
+
+heart_fit = fit(heart_wflow, hearttrain)
+```
+
+```{r}
+#look at the tree's fit
+heart_fit %>%
+  pull_workflow_fit() %>%
+  pluck("fit")  
+```
+
+```{r}
+#extract the tree's fit from the fit object
+tree = heart_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+#plot the tree
+rpart.plot(tree)
+```
+```{r}
+#alternative
+fancyRpartPlot(tree) 
+```
+
+```{r}
+heart_fit$fit$fit$fit$cptable
+```
+
+Create our folds  
+```{r}
+set.seed(123)
+folds = vfold_cv(hearttrain, v = 5)
+```
+
+
+
+```{r}
+heart_recipe = recipe(HeartDisease ~., hearttrain) %>%
+  step_dummy(all_nominal(),-all_outcomes())
+
+tree_model = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification")
+
+tree_grid = grid_regular(cost_complexity(),
+                          levels = 25) #try 25 sensible values for cp
+
+heart_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(heart_recipe)
+
+tree_res = 
+  heart_wflow %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
+    )
+
+tree_res
+```
+
+Borrowed code from: https://www.tidymodels.org/start/tuning/
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) 
+```
+
+
+```{r}
+best_tree = tree_res %>%
+  select_best("accuracy")
+
+best_tree
+```
+
+```{r}
+final_wf = 
+  heart_wflow %>% 
+  finalize_workflow(best_tree)
+```
+
+```{r}
+final_fit = fit(final_wf, hearttrain)
+
+tree = final_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+fancyRpartPlot(tree, tweak = 1.5) 
+
+```
+Predictions on training set  
+
+```{r}
+treepred = predict(final_fit, hearttrain, type = "class")
+head(treepred)
+```
+
+Caret confusion matrix and accuracy, etc. calcs  
+```{r}
+confusionMatrix(treepred$.pred_class,hearttrain$HeartDisease,positive="Yes") #predictions first then actual
+```
+
+Predictions on testing set  
+```{r}
+treepred_test = predict(final_fit, hearttest, type = "class")
+head(treepred_test)
+```
+
+Caret confusion matrix and accuracy, etc. calcs  
+```{r}
+confusionMatrix(treepred_test$.pred_class,hearttest$HeartDisease,positive="Yes") #predictions first then actual
+```
+
+```{r}
+titanic_recipe = recipe(Survived ~., train) %>% 
+  step_dummy(all_nominal(),-all_outcomes())
+
+tree_model = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification")
+
+tree_grid = expand.grid(cost_complexity = seq(0.001,0.01,by=0.001))
+
+titanic_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(titanic_recipe)
+
+tree_res = 
+  titanic_wflow %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
+    )
+
+tree_res
+```
+
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) 
+```
+```{r}
+best_tree = tree_res %>%
+  select_best("accuracy")
+
+best_tree
+```
+
+```{r}
+final_wf = 
+  titanic_wflow %>% 
+  finalize_workflow(best_tree)
+```
+
+```{r}
+final_fit = fit(final_wf, train)
+
+tree = final_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+fancyRpartPlot(tree, tweak = 1.5) 
+
+```
+

@@ -1,0 +1,62 @@
+
+Libraries  
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(GGally) #for ggpairs function
+library(lubridate)
+```
+
+Read-in dataset  
+```{r}
+library(readr)
+bikes<- read_csv("~/Desktop/Prescriptive Analitics/Module 2/Weekassignment2/bike_cleaned.csv")
+View(bikes)
+
+str(bikes)
+summary(bikes)
+```
+```{r}
+bikes = bikes %>% mutate(dteday = mdy(dteday))
+
+bikes = bikes %>% mutate(season = as_factor(season))
+bikes = bikes %>% mutate(mnth = as_factor(mnth))
+bikes = bikes %>% mutate(holiday = as_factor(holiday))
+bikes = bikes %>% mutate(weekday = as_factor(weekday))
+bikes = bikes %>% mutate(workingday= as_factor(workingday))
+bikes = bikes %>% mutate(weathersit = as_factor(weathersit))
+bikes = bikes %>% mutate(hr = as_factor(hr))
+str(bikes)
+```
+
+```{r}
+set.seed(1234)
+bikes_split = initial_split(bikes, prop = 0.70, strata = count)
+train = training(bikes_split)
+test = testing(bikes_split)
+```
+
+
+```{r}
+bikes_recipe = recipe(count ~ season + mnth + hr + holiday + weekday + temp + weathersit, train)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bikes_recipe)
+
+lm_fit = fit(lm_wflow, train)
+```
+
+```{r}
+summary(lm_fit$fit$fit$fit)
+```
+
+See the results on the test set  
+```{r}
+lm_fit %>% predict(test) %>% bind_cols(test) %>% metrics(truth = count, estimate = .pred)
+```

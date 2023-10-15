@@ -1,0 +1,69 @@
+---
+title: "Week 4"
+author: "Freddy Simpson"
+date: "2023-09-25"
+output: word_document
+---
+
+```{r}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(naniar) #visualizing missingness
+library(skimr) #alternative way to view dataset summaries
+library(UpSetR) #visualizing missingness
+```
+
+Read in dataset   
+```{r}
+library(readr)
+grades <- read_csv("~/Desktop/Prescriptive Analitics/Module 2/Weekassignment2/class-grades.csv")
+View(grades)
+```
+
+Structure and summary
+```{r}
+str(grades)
+summary(grades)
+skim(grades)
+```
+```{r}
+vim_plot = aggr(grades, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7)
+#the cex.axis reduces size of text on x-axis so labels fit better
+```
+
+Row-wise deletion of any row with at least one NA:
+```{r}
+grades_rowdel = grades %>% drop_na() 
+#alternatively can specify which variable(s) on which to do the drop_na
+#drop_na(Age)
+skim(grades_rowdel)
+```
+Column-wise deletion of the missing variable (creating a new data frame with this variable removed).  
+```{r}
+grades_coldel = grades %>% select(-Tutorial)
+
+
+vim_plot = aggr(grades_coldel, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7)
+skim(grades_coldel)
+```
+
+
+Finally, imputation. Let's use the "mice" package to do imputation.  
+```{r}
+set.seed(123) #sets seed for random number generator
+imp_grades = mice(grades, m=5, method='pmm', printFlag=FALSE)
+#m is the number of imputations, 5 is a reasonable value as a default
+#pmm is "predictive mean matching" = imputation method for numeric data
+#printFlag reduces amount of output
+summary(imp_grades)
+str(imp_grades)
+```
+Merge the imputed values into our titanic data frame  
+```{r}
+grades_complete = complete(imp_grades) 
+summary(grades_complete)
+```
+Now we
